@@ -1691,6 +1691,29 @@ public class TypeChecker extends BLangNodeVisitor {
         return errored ? symTable.semanticError : arrayType;
     }
 
+    public boolean doesContainInferredArray(BType type) {
+        switch (type.tag) {
+            case TypeTags.UNION:
+                for (BType memberType : ((BUnionType) type).getMemberTypes()) {
+                    if (doesContainInferredArray(memberType)) {
+                        return true;
+                    }
+                }
+                return false;
+            case TypeTags.INTERSECTION:
+                for (BType memberType : ((BIntersectionType) type).getConstituentTypes()) {
+                    if (doesContainInferredArray(memberType)) {
+                        return true;
+                    }
+                }
+                return false;
+            case TypeTags.ARRAY:
+                return isArrayOpenSealedType((BArrayType) type);
+            default:
+                return false;
+        }
+    }
+
     private BType checkTupleType(BLangListConstructorExpr listConstructor, BTupleType tupleType) {
         List<BLangExpression> exprs = listConstructor.exprs;
         List<BType> memberTypes = tupleType.tupleTypes;
@@ -2422,12 +2445,6 @@ public class TypeChecker extends BLangNodeVisitor {
             }
         }
 
-        // Check type compatibility
-        if (expType.tag == TypeTags.ARRAY && isArrayOpenSealedType((BArrayType) expType)) {
-            dlog.error(varRefExpr.pos, DiagnosticErrorCode.CLOSED_ARRAY_TYPE_CAN_NOT_INFER_SIZE);
-            return;
-
-        }
         resultType = types.checkType(varRefExpr, actualType, expType);
     }
 
